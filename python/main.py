@@ -59,10 +59,10 @@ class IPAM:
                         new_node = left_Tree.search_best(curr_network)
                         if not new_node:
                             curr_node = left_Tree.add(curr_network)
-                            self.data.at[index, "SELF_OVERLAP_B"] = "NO_OVERLAP"
+                            self.data.at[index, "CROSS_OVERLAP"] = "NO_OVERLAP"
                             curr_node.data["INDEX"] = index
                         else:
-                            self.data.at[index,"SELF_OVERLAP_B"] = new_node.data["INDEX"]
+                            self.data.at[index,"CROSS_OVERLAP"] = new_node.data["INDEX"]
 
 
         self.data.to_csv("./data/out/Output.csv")
