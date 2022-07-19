@@ -65,7 +65,7 @@ class IPAM:
                             self.data.at[index,"SELF_OVERLAP_B"] = new_node.data["INDEX"]
 
 
-        self.data.to_csv("./Data/Output.csv")
+        self.data.to_csv("./data/out/Output.csv")
 
 if __name__ == '__main__':
     start = time.perf_counter()
