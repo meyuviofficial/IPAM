@@ -1,6 +1,7 @@
 import radix as r
 import pandas as pd
 import numpy as np
+import time
 
 class IPAM:
     def __init__(self) -> None:
@@ -49,5 +50,8 @@ class IPAM:
 
         self.data.to_csv("./Data/Output.csv")
 if __name__ == '__main__':
+    start = time.perf_counter()
     ip = IPAM()
     ip.main()
+    end = time.perf_counter()
+    print(f"The Whole script completed in {end-start:0.4f} seconds")
