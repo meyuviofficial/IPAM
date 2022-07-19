@@ -1,4 +1,3 @@
-from turtle import left, right
 import radix as r
 import pandas as pd
 import numpy as np
