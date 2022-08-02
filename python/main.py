@@ -5,15 +5,40 @@ import numpy as np
 import ipaddress as ip
 import time
 import collections
+from enum import Enum
 
+class ColumnLabel:
+    NO_OVERLAP = -1
+         
 class IPAM:
     def __init__(self) -> None:
         self.data = pd.read_csv("./Data/ip_data.csv", na_filter=False)
+        self.left_Tree = r.Radix()
+        self.right_Tree = r.Radix()
+    
+    def find_self_overlap(self, src_column, src_data, src_tree):
+        self_overlap_column_name = "Self_Overlap_"+src_column
+        # Self Overlap
+        for index, row in src_data.iterrows():
+            if src_data[src_column][index]:
+                try:
+                    curr_network = str(ip.ip_network(src_data[src_column][index]))
+                except ValueError:
+                    print(f"The row : { src_data[src_column][index] } is not in the correct format")
+                else:
+                    if curr_network:
+                        new_node = src_tree.search_best(curr_network)
+                        if not new_node:
+                            curr_node = src_tree.add(curr_network)
+                            src_data.at[index, self_overlap_column_name] = ColumnLabel.NO_OVERLAP
+                            curr_node.data["INDEX"] = index
+                        else:
+                            src_data.at[index, self_overlap_column_name] = new_node.data["INDEX"]
+        return src_data
 
     def main(self) -> None:
-        left_Tree = r.Radix()
-        right_Tree = r.Radix()
-        
+        self.data = self.find_self_overlap(src_column="INFOBLOX_TABLE", src_data=self.data, src_tree=self.left_Tree)
+        self.data = self.find_self_overlap(src_column="ROUTING_TABLE", src_data=self.data, src_tree=self.right_Tree)
         # Self Overlap
         # for index, row in self.data.iterrows():
         #     if self.data["INFOBLOX_TABLE"][index]:
@@ -31,21 +56,21 @@ class IPAM:
         #                 else:
         #                     self.data.at[index,"SELF_OVERLAP_A"] = new_node.data["INDEX"]
         
-        for index, row in self.data.iterrows():
-            if self.data["ROUTING_TABLE"][index]: 
-                try:
-                    curr_network = str(ip.ip_network(self.data["ROUTING_TABLE"][index]))
-                except ValueError:
-                    print(f"The row : { self.data['ROUTING_TABLE'][index] } is not in the correct format")
-                else:
-                    if curr_network:
-                        new_node = right_Tree.search_best(curr_network)
-                        if not new_node:
-                            curr_node = right_Tree.add(curr_network)
-                            self.data.at[index, "SELF_OVERLAP_B"] = "NO_OVERLAP"
-                            curr_node.data["INDEX"] = index
-                        else:
-                            self.data.at[index, "SELF_OVERLAP_B"] = new_node.data["INDEX"]
+        # for index, row in self.data.iterrows():
+        #     if self.data["ROUTING_TABLE"][index]: 
+        #         try:
+        #             curr_network = str(ip.ip_network(self.data["ROUTING_TABLE"][index]))
+        #         except ValueError:
+        #             print(f"The row : { self.data['ROUTING_TABLE'][index] } is not in the correct format")
+        #         else:
+        #             if curr_network:
+        #                 new_node = right_Tree.search_best(curr_network)
+        #                 if not new_node:
+        #                     curr_node = right_Tree.add(curr_network)
+        #                     self.data.at[index, "SELF_OVERLAP_B"] = "NO_OVERLAP"
+        #                     curr_node.data["INDEX"] = index
+        #                 else:
+        #                     self.data.at[index, "SELF_OVERLAP_B"] = new_node.data["INDEX"]
                         
         
         # CROSS OVERLAP
@@ -81,18 +106,18 @@ class IPAM:
         #                 else:
         #                     self.data.at[index,"CROSS_OVERLAP_A_2_B"] = new_node.data["INDEX"]
         
-        memory_map = collections.defaultdict(lambda:False)
-        data_copy = self.data.copy(deep=True)
-        for index, row in data_copy.iterrows():
-            # ** Checking whether the current row is empty or not and equal to "NO_OVERLAP"
-            if data_copy["SELF_OVERLAP_B"][index] and data_copy["SELF_OVERLAP_B"][index] == "NO_OVERLAP":
-                print(f"Processing NO_OVERLAP at index : {index}")
-                curr_list = data_copy.loc[self.data["SELF_OVERLAP_B"] == index].index.tolist()
-                print(f"Current list with length : {len(curr_list)} and memory map index : {memory_map[index]}")
-                if len(curr_list) > 0 and not memory_map[index]:
-                    print(f"Current Index : {index} has child subnets that are overlapping. Hence, appending the list to the current row")
-                    self.data.at[index, "SELF_OVERLAP_B"] = curr_list
-                    memory_map[index] = True
+        # memory_map = collections.defaultdict(lambda:False)
+        # data_copy = self.data.copy(deep=True)
+        # for index, row in data_copy.iterrows():
+        #     # ** Checking whether the current row is empty or not and equal to "NO_OVERLAP"
+        #     if data_copy["SELF_OVERLAP_B"][index] and data_copy["SELF_OVERLAP_B"][index] == "NO_OVERLAP":
+        #         print(f"Processing NO_OVERLAP at index : {index}")
+        #         curr_list = data_copy.loc[self.data["SELF_OVERLAP_B"] == index].index.tolist()
+        #         print(f"Current list with length : {len(curr_list)} and memory map index : {memory_map[index]}")
+        #         if len(curr_list) > 0 and not memory_map[index]:
+        #             print(f"Current Index : {index} has child subnets that are overlapping. Hence, appending the list to the current row")
+        #             self.data.at[index, "SELF_OVERLAP_B"] = curr_list
+                    # memory_map[index] = True
 
         self.data.to_csv("./Data/out/Output.csv")
 
