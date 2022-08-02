@@ -36,9 +36,37 @@ class IPAM:
                             src_data.at[index, self_overlap_column_name] = new_node.data["INDEX"]
         return src_data
 
+    def find_cross_overlap(self, src_column, src_data, src_tree, prefix):
+        cross_overlap_column_name = "Cross_Overlap_"+prefix
+
+        # CROSS OVERLAP
+        for index, row in self.data.iterrows():
+            if src_data[src_column][index]:
+                try:
+                    curr_network = str(ip.ip_network(src_data[src_column][index]))
+                except ValueError:
+                    print(f"The row : { src_data[src_column][index] } is not in the correct format")
+                else:
+                    if curr_network:
+                        new_node = src_tree.search_best(curr_network)
+                        if not new_node:
+                            curr_node = src_tree.add(curr_network)
+                            src_data.at[index, cross_overlap_column_name] = ColumnLabel.NO_OVERLAP
+                            curr_node.data["INDEX"] = index
+                        else:
+                            src_data.at[index, cross_overlap_column_name] = new_node.data["INDEX"]
+        return src_data
+    
     def main(self) -> None:
+        # SELF OVERLAP
         self.data = self.find_self_overlap(src_column="INFOBLOX_TABLE", src_data=self.data, src_tree=self.left_Tree)
         self.data = self.find_self_overlap(src_column="ROUTING_TABLE", src_data=self.data, src_tree=self.right_Tree)
+
+        # CROSS OVERLAP
+        self.data = self.find_cross_overlap(src_column="ROUTING_TABLE", src_data=self.data, src_tree=self.left_Tree, prefix="B_2_A")
+        self.data = self.find_cross_overlap(src_column="INFOBLOX_TABLE", src_data=self.data, src_tree=self.right_Tree, prefix="A_2_B")
+
+
         # Self Overlap
         # for index, row in self.data.iterrows():
         #     if self.data["INFOBLOX_TABLE"][index]:
