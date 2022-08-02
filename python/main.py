@@ -7,7 +7,7 @@ import time
 import collections
 from enum import Enum
 
-class ColumnLabel(Enum):
+class ColumnLabel:
     NO_OVERLAP = -1
     SELF_OVERLAP_A = "SELF_OVERLAP_A"
     SELF_OVERLAP_B = "SELF_OVERLAP_B"
