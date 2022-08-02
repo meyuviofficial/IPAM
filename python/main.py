@@ -7,8 +7,9 @@ import time
 import collections
 from enum import Enum
 
+isRunning = True
 class ColumnLabel:
-    NO_OVERLAP = -1
+    NO_OVERLAP = "NO_OVERLAP"
     SELF_OVERLAP_A = "SELF_OVERLAP_A"
     SELF_OVERLAP_B = "SELF_OVERLAP_B"
     CROSS_OVERLAP_A_2_B = "CROSS_OVERLAP_A_2_B"
@@ -57,22 +58,19 @@ class IPAM:
                         else:
                             self.data.at[index, cross_overlap_column_name] = new_node.data["INDEX"]
 
-    def fill_backward_overlap(self):
-        memory_map = collections.defaultdict(lambda: False)
+    def fill_backward_overlap(self, column_to_be_checked):
+        print(f"Checking the backward overlapping for the column : {column_to_be_checked}")
+        memory_map = collections.defaultdict(lambda:False)
         data_copy = self.data.copy(deep=True)
-
         for index, row in data_copy.iterrows():
             # ** Checking whether the current row is empty or not and equal to "NO_OVERLAP"
-            if data_copy["SELF_OVERLAP_B"][index] and data_copy["SELF_OVERLAP_B"][index] == "NO_OVERLAP":
-
-                print(f"Processing NO_OVERLAP at index : {index}")
-                curr_list = data_copy.loc[self.data["SELF_OVERLAP_B"] == index].index.tolist()
-                
-                print(f"Current list with length : {len(curr_list)} and memory map index : {memory_map[index]}")
+            if data_copy[column_to_be_checked][index] and data_copy[column_to_be_checked][index] == ColumnLabel.NO_OVERLAP:
+                # print(f"Processing NO_OVERLAP at index : {index}")
+                curr_list = data_copy.loc[self.data[column_to_be_checked] == index].index.tolist()
+                # print(f"Current list with length : {len(curr_list)} and memory map index : {memory_map[index]}")
                 if len(curr_list) > 0 and not memory_map[index]:
-                    print(f"Current Index : {index} has child subnets that are overlapping. Hence, appending the list to the current row")
-                    self.data.at[index, "SELF_OVERLAP_B"] = curr_list
-        
+                    # print(f"Current Index : {index} has child subnets that are overlapping. Hence, appending the list to the current row")
+                    self.data.at[index, column_to_be_checked] = curr_list
         memory_map[index] = True
 
     def main(self) -> None:
@@ -84,6 +82,12 @@ class IPAM:
         self.find_cross_overlap(src_column="INFOBLOX_TABLE", src_tree=self.right_Tree, cross_overlap_column_name=ColumnLabel.CROSS_OVERLAP_A_2_B)
         self.find_cross_overlap(src_column="ROUTING_TABLE", src_tree=self.left_Tree, cross_overlap_column_name=ColumnLabel.CROSS_OVERLAP_B_2_A)
 
+        self.fill_backward_overlap(column_to_be_checked=ColumnLabel.SELF_OVERLAP_A)
+        self.fill_backward_overlap(column_to_be_checked=ColumnLabel.SELF_OVERLAP_B)
+        # self.fill_backward_overlap(column_to_be_checked=ColumnLabel.CROSS_OVERLAP_A_2_B)
+        # self.fill_backward_overlap(column_to_be_checked=ColumnLabel.CROSS_OVERLAP_B_2_A)
+
+        isRunning = False
         # Self Overlap
         # for index, row in self.data.iterrows():
         #     if self.data["INFOBLOX_TABLE"][index]:
