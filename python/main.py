@@ -6,6 +6,7 @@ import ipaddress as ip
 import time
 import collections
 from enum import Enum
+from copy import copy
 
 isRunning = True
 class ColumnLabel:
@@ -14,14 +15,20 @@ class ColumnLabel:
     SELF_OVERLAP_B = "SELF_OVERLAP_B"
     CROSS_OVERLAP_A_2_B = "CROSS_OVERLAP_A_2_B"
     CROSS_OVERLAP_B_2_A = "CROSS_OVERLAP_B_2_A"
+    COLUMN_A = "INFOBLOX_TABLE"
+    COLUMN_B = "ROUTING_TABLE"
          
 class IPAM:
     def __init__(self) -> None:
         self.data = pd.read_csv("./Data/ip_data.csv", na_filter=False)
         self.left_Tree = r.Radix()
         self.right_Tree = r.Radix()
+        self.overlap_map_a = collections.defaultdict(list)
+        self.overlap_map_b = collections.defaultdict(list)
+
     
-    def find_self_overlap(self, src_column, src_tree, self_overlap_column_name):
+    def find_self_overlap(self, src_column, src_tree, self_overlap_column_name, hash_map):
+
         # Self Overlap
         for index, row in self.data.iterrows():
             if self.data[src_column][index]:
@@ -38,6 +45,11 @@ class IPAM:
                             curr_node.data["INDEX"] = index
                         else:
                             self.data.at[index, self_overlap_column_name] = new_node.data["INDEX"]
+
+                            if src_column == ColumnLabel.COLUMN_A:
+                                self.overlap_map_a[new_node.data["INDEX"]].append(index)
+                            else:
+                                self.overlap_map_b[new_node.data["INDEX"]].append(index)
 
     def find_cross_overlap(self, src_column, src_tree, cross_overlap_column_name):
 
@@ -58,34 +70,28 @@ class IPAM:
                         else:
                             self.data.at[index, cross_overlap_column_name] = new_node.data["INDEX"]
 
-    def fill_backward_overlap(self, column_to_be_checked):
+    def fill_backward_overlap(self, column_to_be_checked, hash_map):
+
         print(f"Checking the backward overlapping for the column : {column_to_be_checked}")
-        memory_map = collections.defaultdict(lambda:False)
+        memory_map = collections.defaultdict(lambda: False)
         data_copy = self.data.copy(deep=True)
         for index, row in data_copy.iterrows():
             # ** Checking whether the current row is empty or not and equal to "NO_OVERLAP"
-            if data_copy[column_to_be_checked][index] and data_copy[column_to_be_checked][index] == ColumnLabel.NO_OVERLAP:
-                # print(f"Processing NO_OVERLAP at index : {index}")
-                curr_list = data_copy.loc[self.data[column_to_be_checked] == index].index.tolist()
-                # print(f"Current list with length : {len(curr_list)} and memory map index : {memory_map[index]}")
-                if len(curr_list) > 0 and not memory_map[index]:
-                    # print(f"Current Index : {index} has child subnets that are overlapping. Hence, appending the list to the current row")
-                    self.data.at[index, column_to_be_checked] = curr_list
-        memory_map[index] = True
+            if hash_map.get(index, False) and data_copy[column_to_be_checked][index] and data_copy[column_to_be_checked][index] == ColumnLabel.NO_OVERLAP:
+                print("inside the if condition")
+                self.data.at[index, column_to_be_checked] = hash_map[index]
 
     def main(self) -> None:
         # SELF OVERLAP
-        self.find_self_overlap(src_column="INFOBLOX_TABLE", src_tree=self.left_Tree, self_overlap_column_name=ColumnLabel.SELF_OVERLAP_A)
-        self.find_self_overlap(src_column="ROUTING_TABLE", src_tree=self.right_Tree, self_overlap_column_name=ColumnLabel.SELF_OVERLAP_B)
+        self.find_self_overlap(src_column=ColumnLabel.COLUMN_A, src_tree=self.left_Tree, self_overlap_column_name=ColumnLabel.SELF_OVERLAP_A, hash_map=self.overlap_map_a)
+        self.find_self_overlap(src_column=ColumnLabel.COLUMN_B, src_tree=self.right_Tree, self_overlap_column_name=ColumnLabel.SELF_OVERLAP_B, hash_map=self.overlap_map_b)
 
         # CROSS OVERLAP
-        self.find_cross_overlap(src_column="INFOBLOX_TABLE", src_tree=self.right_Tree, cross_overlap_column_name=ColumnLabel.CROSS_OVERLAP_A_2_B)
-        self.find_cross_overlap(src_column="ROUTING_TABLE", src_tree=self.left_Tree, cross_overlap_column_name=ColumnLabel.CROSS_OVERLAP_B_2_A)
+        self.find_cross_overlap(src_column=ColumnLabel.COLUMN_A, src_tree=self.right_Tree, cross_overlap_column_name=ColumnLabel.CROSS_OVERLAP_A_2_B)
+        self.find_cross_overlap(src_column=ColumnLabel.COLUMN_B, src_tree=self.left_Tree, cross_overlap_column_name=ColumnLabel.CROSS_OVERLAP_B_2_A)
 
-        self.fill_backward_overlap(column_to_be_checked=ColumnLabel.SELF_OVERLAP_A)
-        self.fill_backward_overlap(column_to_be_checked=ColumnLabel.SELF_OVERLAP_B)
-
-        isRunning = False
+        self.fill_backward_overlap(column_to_be_checked=ColumnLabel.SELF_OVERLAP_A, hash_map=self.overlap_map_a)
+        self.fill_backward_overlap(column_to_be_checked=ColumnLabel.SELF_OVERLAP_B, hash_map=self.overlap_map_b)
 
         self.data.to_csv("./Data/out/Output.csv")
 
