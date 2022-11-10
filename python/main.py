@@ -4,6 +4,8 @@ import ipaddress as ip
 import time
 import datetime
 import collections
+from os import path
+import argparse as args
 
 isRunning = True
 
@@ -19,8 +21,9 @@ class ColumnLabel:
 
 
 class IPAM:
-    def __init__(self) -> None:
-        self.data = pd.read_csv("../Data/ip_data.csv", na_filter=False)
+    def __init__(self, _input, _output) -> None:
+        self.data = pd.read_csv(_input, na_filter=False)
+        self._output = _output
         self.left_Tree = r.Radix()
         self.right_Tree = r.Radix()
         self.overlap_map_a = collections.defaultdict(list)
@@ -99,24 +102,35 @@ class IPAM:
         self.fill_backward_overlap(column_to_be_checked=ColumnLabel.SELF_OVERLAP_B, hash_map=self.overlap_map_b)
 
         # CROSS OVERLAP
-        self.find_cross_overlap(src_column=ColumnLabel.COLUMN_A, src_tree=self.right_Tree,
-                                cross_overlap_column_name=ColumnLabel.CROSS_OVERLAP_A_2_B)
-        self.find_cross_overlap(src_column=ColumnLabel.COLUMN_B, src_tree=self.left_Tree,
-                                cross_overlap_column_name=ColumnLabel.CROSS_OVERLAP_B_2_A)
+        self.find_cross_overlap(src_column=ColumnLabel.COLUMN_A, src_tree=self.right_Tree, cross_overlap_column_name=ColumnLabel.CROSS_OVERLAP_A_2_B)
+        self.find_cross_overlap(src_column=ColumnLabel.COLUMN_B, src_tree=self.left_Tree, cross_overlap_column_name=ColumnLabel.CROSS_OVERLAP_B_2_A)
 
         # Fill Backward Overlap
         self.fill_backward_overlap(column_to_be_checked=ColumnLabel.CROSS_OVERLAP_A_2_B, hash_map=self.cross_overlap_map_b)
         self.fill_backward_overlap(column_to_be_checked=ColumnLabel.CROSS_OVERLAP_B_2_A, hash_map=self.cross_overlap_map_a)
 
-        print(self.cross_overlap_map_a, self.cross_overlap_map_a)
+        # print(self.cross_overlap_map_a, self.cross_overlap_map_a)
         # Output file based on Time
         now = datetime.datetime.now().strftime("%d%m%Y_%H_%M_%S")
-        self.data.to_csv(f"../Data/out/Output_{now}.csv")
+        self.data.to_csv(f"{self._output[:-4]}_{now}.csv")
 
 
 if __name__ == '__main__':
     start = time.perf_counter()
-    _ipam = IPAM()
-    _ipam.main()
+    parser = args.ArgumentParser()
+    parser.add_argument("-i", "--input", help="Path of the input file")
+    parser.add_argument("-o", "--output", help="Path of the output file")
+    parser.add_argument("-c1", "--column1", help="Column 1 of the Input file")
+    parser.add_argument("-c2", "--column2", help="Column 2 of the Input file")
+    args = parser.parse_args()
+
+    _input = args.input
+    _output = args.output
+
+    if not path.exists(_input):
+        print("OOPS !! The path that you've entered is not right. Please re-run the script with the right path!")
+    else:
+        _ipam = IPAM(_input, _output)
+        _ipam.main()
     end = time.perf_counter()
     print(f"The Whole script completed in {end - start:0.4f} seconds")
